@@ -1,29 +1,66 @@
 import streamlit as st
 import random
-import time
 
-st.title("Xpedious Procurement System")
+# ====== PAGE CONFIG ======
+st.set_page_config(page_title="Xpedious", layout="wide")
 
-# ====== SESSION STORAGE ======
+# ====== CUSTOM CSS ======
+st.markdown("""
+<style>
+body {
+    background-color: #0f1117;
+    color: white;
+}
+
+.block-container {
+    padding-top: 2rem;
+}
+
+h1 {
+    color: #4CAF50;
+}
+
+.card {
+    background-color: #1c1f26;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.vendor {
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 5px;
+}
+
+.best {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
+}
+
+.bad {
+    background-color: #2a2d36;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.title("🚀 Xpedious Procurement System")
+
+# ====== STATE ======
 if "orders" not in st.session_state:
     st.session_state.orders = []
 
 # ====== FUNCTIONS ======
 def parse_items(text):
     items = []
-    lines = text.split(",")
-
-    for line in lines:
+    for line in text.split(","):
         qty = "".join([c for c in line if c.isdigit()])
         qty = int(qty) if qty else 1
-
         name = "".join([c for c in line if not c.isdigit()]).strip()
 
-        items.append({
-            "name": name,
-            "quantity": qty
-        })
-
+        items.append({"name": name, "quantity": qty})
     return items
 
 def generate_vendors():
@@ -33,56 +70,63 @@ def generate_vendors():
         {"name": "Vendor C", "price": random.randint(100, 400)},
     ]
 
-def pick_best_vendor(vendors):
+def pick_best(vendors):
     return min(vendors, key=lambda x: x["price"])
 
 def create_delivery():
-    return {
-        "status": "scheduled",
-        "eta": "Tomorrow 9AM"
-    }
+    return {"eta": "Tomorrow 9AM"}
 
 def create_invoice(order):
-    return {
-        "total": order["selected_vendor"]["price"],
-        "status": "unpaid"
-    }
+    return {"total": order["selected"]["price"]}
 
 # ====== INPUT ======
-message = st.text_input("Enter SMS Order (example: 3 breakers, 2 panels)")
+col1, col2 = st.columns([3,1])
 
-if st.button("Process Order"):
-    if message:
-        items = parse_items(message)
-        vendors = generate_vendors()
-        selected = pick_best_vendor(vendors)
+with col1:
+    message = st.text_input("Enter Order (e.g. 3 breakers, 2 panels)")
 
-        order = {
-            "items": items,
-            "vendors": vendors,
-            "selected_vendor": selected,
-            "delivery": create_delivery(),
-            "invoice": None
-        }
+with col2:
+    if st.button("Create Order"):
+        if message:
+            items = parse_items(message)
+            vendors = generate_vendors()
+            best = pick_best(vendors)
 
-        order["invoice"] = create_invoice(order)
+            order = {
+                "items": items,
+                "vendors": vendors,
+                "selected": best,
+                "delivery": create_delivery(),
+                "invoice": None
+            }
 
-        st.session_state.orders.append(order)
+            order["invoice"] = create_invoice(order)
+            st.session_state.orders.append(order)
 
 # ====== DISPLAY ======
 st.subheader("Orders")
 
-for i, order in enumerate(st.session_state.orders):
-    with st.expander(f"Order {i+1}"):
+for order in st.session_state.orders:
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
-        st.write("**Items:**", order["items"])
+    st.markdown("### 📦 Items")
+    for item in order["items"]:
+        st.write(f"- {item['quantity']}x {item['name']}")
 
-        st.write("**Vendor Quotes:**")
-        for v in order["vendors"]:
-            st.write(f"{v['name']}: ${v['price']}")
+    st.markdown("### 🏭 Vendor Quotes")
+    for v in order["vendors"]:
+        if v == order["selected"]:
+            st.markdown(
+                f'<div class="vendor best">{v["name"]} - ${v["price"]} ✅ BEST</div>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.markdown(
+                f'<div class="vendor bad">{v["name"]} - ${v["price"]}</div>',
+                unsafe_allow_html=True
+            )
 
-        st.write("**Selected Vendor:**", order["selected_vendor"]["name"])
+    st.markdown(f"### 🚚 Delivery: {order['delivery']['eta']}")
+    st.markdown(f"### 💰 Invoice: ${order['invoice']['total']}")
 
-        st.write("**Delivery ETA:**", order["delivery"]["eta"])
-
-        st.write("**Invoice Total:** $", order["invoice"]["total"])
+    st.markdown('</div>', unsafe_allow_html=True)
